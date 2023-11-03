@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Python3
-- ffmpeg
+- ffmpeg (for generating sample video)
 - AWS Account
 
 ## How to run
