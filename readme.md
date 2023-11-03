@@ -22,6 +22,10 @@ pip install -r requirements.txt
 python3 main.py
 ```
 
+## What it should look like
+
+![screenshot](./screenshot.png)
+
 ## How to generate a sample video
 
 `ffmpeg -f lavfi -i color=green:s=1280x720 -vframes 1 green.mkv`
