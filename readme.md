@@ -13,7 +13,7 @@ export AWS_ACCESS_KEY_ID="REPLACE_ME"
 export AWS_SECRET_ACCESS_KEY="REPLACE_ME"
 export STREAM_NAME="REPLACE_ME" # will be created if it doesn't exist
 export AWS_DEFAULT_REGION="ap-southeast-2"
-export VIDEO_FILEPATH="./blue.mkv"
+export VIDEO_FILEPATH="Big_Buck_Bunny_1080_10s_1MB.webm"
 
 python3 -m venv venv
 source venv/bin/activate
@@ -25,10 +25,6 @@ python3 main.py
 ## What it should look like
 
 ![screenshot](./screenshot.png)
-
-## How to generate a sample video
-
-`ffmpeg -f lavfi -i color=green:s=1280x720 -vframes 1 green.mkv`
 
 ## Links
 

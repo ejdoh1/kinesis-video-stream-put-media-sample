@@ -4,6 +4,7 @@ KvsClient is a client for the Kinesis Video Streams service.
 import datetime
 import hashlib
 import hmac
+import json
 import logging
 import time
 
@@ -64,7 +65,6 @@ class KvsClient:
 
     def __init__(self, input_params: InputParams):
         self.input_params = input_params
-        self._kinesis_video_client = boto3.client(self._kinesis_video_service_name)
         self._log = logging.getLogger(__name__)
 
     def initialise(self):
@@ -104,7 +104,7 @@ class KvsClient:
         """
         create_kinesis_video_stream creates a Kinesis Video Stream.
         """
-        return self._kinesis_video_client.create_stream(
+        return boto3.client("kinesisvideo").create_stream(
             StreamName=stream_name,
             DataRetentionInHours=data_retention_in_hours,
         )
@@ -112,13 +112,14 @@ class KvsClient:
     def _get_data_endpoint(
         self,
         stream_name: str,
+        api_name: str = "PUT_MEDIA",
     ) -> str:
         """
         get_endpoint_boto returns the endpoint for the Kinesis Video Streams service.
         Sample https://s-ca658586.kinesisvideo.ap-southeast-2.amazonaws.com
         """
-        return self._kinesis_video_client.get_data_endpoint(
-            StreamName=stream_name, APIName="PUT_MEDIA"
+        return boto3.client("kinesisvideo").get_data_endpoint(
+            StreamName=stream_name, APIName=api_name
         )["DataEndpoint"]
 
     def sign(self, key, msg) -> bytes:
@@ -156,6 +157,58 @@ class KvsClient:
         if not endpoint.startswith("https://"):
             raise ValueError("Endpoint must start with https://")
         return endpoint[len("https://") :].split(".")[2]
+
+    def get_media(self, fragment_number: str, output_file_path: str = "output.mkv"):
+        """
+        get_media returns the fragments for the stream.
+        """
+        media = boto3.client(
+            "kinesis-video-media",
+            endpoint_url=self._get_data_endpoint(
+                stream_name=self.input_params.stream_name,
+                api_name="GET_MEDIA",
+            ),
+        ).get_media(
+            StreamName=self.input_params.stream_name,
+            StartSelector={
+                "StartSelectorType": "FRAGMENT_NUMBER",
+                "AfterFragmentNumber": fragment_number,
+            },
+        )
+        with open(output_file_path, "wb") as f:
+            f.write(media["Payload"].read())
+        return media
+
+    def list_fragments(
+        self,
+        stream_name: str,
+        start_timestamp: float,
+        end_timestamp: float,
+        api_name: str = "LIST_FRAGMENTS",
+        fragment_selector_type: str = "SERVER_TIMESTAMP",  # SERVER_TIMESTAMP | PRODUCER_TIMESTAMP
+    ) -> list:
+        """
+        get_fragments returns the fragments for the stream.
+        """
+        url = self._get_data_endpoint(
+            stream_name=self.input_params.stream_name,
+            api_name=api_name,
+        )
+        return boto3.client(
+            "kinesis-video-archived-media",
+            endpoint_url=url,
+        ).list_fragments(
+            StreamName=stream_name,
+            FragmentSelector={
+                "FragmentSelectorType": fragment_selector_type,
+                "TimestampRange": {
+                    "StartTimestamp": start_timestamp,
+                    "EndTimestamp": end_timestamp,
+                },
+            },
+        )[
+            "Fragments"
+        ]
 
     def _generate_headers(self) -> dict:
         """
@@ -269,7 +322,10 @@ class KvsClient:
             "Expect": "100-continue",
         }
 
-    def put_media(self):
+    def put_media(
+        self,
+        chunk_size: int = 16000,
+    ):
         """
         put_media uploads a video to the Kinesis Video Streams service.
         """
@@ -278,9 +334,15 @@ class KvsClient:
         response = requests.post(
             self._put_media_endpoint,
             data=ChunkGenerator(
-                file_path=self.input_params.video_file_path, chunk_size=16000
+                file_path=self.input_params.video_file_path, chunk_size=chunk_size
             ),
             headers=headers,
             timeout=10,
         )
-        self._log.info("Response: %s", response.text)
+        self._log.debug("Response: %s", response.text)
+        result = []
+        for line in response.text.split("\n"):
+            if line.startswith("{"):
+                data = json.loads(line)
+                result.append(data)
+        return result

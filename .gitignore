@@ -2,3 +2,4 @@ main.sh
 venv
 .mypy*
 __pycache__/kvs_client.cpython-311.pyc
+output.mkv
