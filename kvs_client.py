@@ -13,7 +13,7 @@ import requests
 from botocore.exceptions import ClientError
 from pydantic import BaseModel, Field
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 
 
 class InputParams(BaseModel):
@@ -116,7 +116,6 @@ class KvsClient:
     ) -> str:
         """
         get_endpoint_boto returns the endpoint for the Kinesis Video Streams service.
-        Sample https://s-ca658586.kinesisvideo.ap-southeast-2.amazonaws.com
         """
         return boto3.client("kinesisvideo").get_data_endpoint(
             StreamName=stream_name, APIName=api_name
@@ -143,7 +142,6 @@ class KvsClient:
     def get_host_from_endpoint(endpoint: str) -> str:
         """
         get_host_from_endpoint returns the host from the endpoint.
-        Sample https://s-ca658586.kinesisvideo.ap-southeast-2.amazonaws.com
         """
         if not endpoint.startswith("https://"):
             raise ValueError("Endpoint must start with https://")

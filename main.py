@@ -19,7 +19,7 @@ if __name__ == "__main__":
     kvs_client.initialise()
 
     time_pre_put_media = time.time()
-    result = kvs_client.put_media(chunk_size=10000)
+    result = kvs_client.put_media(chunk_size=100000)
     time_post_put_media = time.time()
 
     # get the first fragment number
