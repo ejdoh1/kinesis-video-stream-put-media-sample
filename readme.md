@@ -1,24 +1,27 @@
-# AWS Kinesis Video Stream PutMedia Python Sample
+# AWS Kinesis Video Stream PutMedia Python Lambda Sample
+
+Upload a video to AWS Kinesis Video Stream using the PutMedia API from a Python Lambda function.
 
 ## Prerequisites
 
 - Python3
 - AWS Account
+- Serverless Framework
 
 ## How to run
 
 ```sh
-export AWS_ACCESS_KEY_ID="REPLACE_ME"
-export AWS_SECRET_ACCESS_KEY="REPLACE_ME"
+npm install
+
 export STREAM_NAME="REPLACE_ME" # will be created if it doesn't exist
-export AWS_DEFAULT_REGION="ap-southeast-2"
-export VIDEO_FILEPATH="Big_Buck_Bunny_1080_10s_1MB.mkv"
+export AWS_PROFILE="REPLACE_ME" # optional
+export VIDEO_FILE_PATH="Big_Buck_Bunny_1080_10s_1MB.mkv"
 
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+sls deploy
 
-python3 main.py
+# upload the video using the API Gateway endpoint URL from the output of the previous command
+# curl https://xxxxx.execute-api.ap-southeast-2.amazonaws.com/dev/upload
+
 ```
 
 ## Encode the sample video
@@ -38,7 +41,32 @@ So you need to encode it with ffmpeg:
 
 ![screenshot](./screenshot.png)
 
-![logs](./console.png)
+```sh
+(venv) kinesis-video-stream-put-media-sample $ curl https://xxxxx.execute-api.ap-southeast-2.amazonaws.com/dev/upload
+[
+    {
+        "FragmentLengthInMilliseconds": 4933,
+        "FragmentNumber": "91343852333182194963746262452351523100320850344",
+        "FragmentSizeInBytes": 369203,
+        "ProducerTimestamp": "2023-11-08 13:47:45.470000+00:00",
+        "ServerTimestamp": "2023-11-08 13:47:45.527000+00:00"
+    },
+    {
+        "FragmentLengthInMilliseconds": 1634,
+        "FragmentNumber": "91343852333182194973649782766634565303615586077",
+        "FragmentSizeInBytes": 143468,
+        "ProducerTimestamp": "2023-11-08 13:47:53.803000+00:00",
+        "ServerTimestamp": "2023-11-08 13:47:45.542000+00:00"
+    },
+    {
+        "FragmentLengthInMilliseconds": 3233,
+        "FragmentNumber": "91343852333182194968698022609493044201660210810",
+        "FragmentSizeInBytes": 218775,
+        "ProducerTimestamp": "2023-11-08 13:47:50.537000+00:00",
+        "ServerTimestamp": "2023-11-08 13:47:45.534000+00:00"
+    }
+]
+```
 
 ## Links
 

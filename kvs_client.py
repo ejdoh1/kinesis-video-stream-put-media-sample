@@ -11,21 +11,8 @@ import time
 import boto3
 import requests
 from botocore.exceptions import ClientError
-from pydantic import BaseModel, Field
 
-logging.basicConfig(level=logging.ERROR)
-
-
-class InputParams(BaseModel):
-    """
-    InputParams is the input parameters for the KvsClient.
-    """
-
-    aws_access_key_id: str = Field(min_length=1)
-    aws_secret_access_key: str = Field(min_length=1)
-    aws_default_region: str = Field(default="ap-southeast-2")
-    stream_name: str = Field(min_length=1)
-    video_file_path: str = Field(default="blue.mkv", min_length=1)
+logging.basicConfig(level=logging.INFO)
 
 
 class ChunkGenerator:
@@ -62,10 +49,27 @@ class KvsClient:
     _data_endpoint_host = None  # type: str
     _data_endpoint_region = None  # type: str
     _put_media_endpoint = None  # type: str
+    _stream_name = None  # type: str
+    _log = None  # type: logging.Logger
+    _aws_access_key_id = None  # type: str
+    _aws_secret_access_key = None  # type: str
+    _aws_session_token = None  # type: str
+    _video_file_path = None  # type: str
 
-    def __init__(self, input_params: InputParams):
-        self.input_params = input_params
+    def __init__(
+        self,
+        stream_name: str,
+        video_file_path: str,
+        aws_access_key_id: str,
+        aws_secret_access_key: str,
+        aws_session_token: str = None,  # type: ignore
+    ):
         self._log = logging.getLogger(__name__)
+        self._aws_access_key_id = aws_access_key_id
+        self._aws_secret_access_key = aws_secret_access_key
+        self._aws_session_token = aws_session_token
+        self._stream_name = stream_name
+        self._video_file_path = video_file_path
 
     def initialise(self):
         """
@@ -73,16 +77,14 @@ class KvsClient:
         """
         try:
             logging.debug("Creating Kinesis Video Stream.")
-            self._create_kinesis_video_stream(stream_name=self.input_params.stream_name)
+            self._create_kinesis_video_stream(stream_name=self._stream_name)
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceInUseException":
                 self._log.info("Stream already exists.")
             else:
                 raise e
         self._log.debug("Getting data endpoint.")
-        self._data_endpoint = self._get_data_endpoint(
-            stream_name=self.input_params.stream_name
-        )
+        self._data_endpoint = self._get_data_endpoint(stream_name=self._stream_name)
         self._log.info("Data endpoint: %s", self._data_endpoint)
         self._data_endpoint_host = self.get_host_from_endpoint(self._data_endpoint)
         self._log.info("Data endpoint host: %s", self._data_endpoint_host)
@@ -163,11 +165,11 @@ class KvsClient:
         media = boto3.client(
             "kinesis-video-media",
             endpoint_url=self._get_data_endpoint(
-                stream_name=self.input_params.stream_name,
+                stream_name=self._stream_name,
                 api_name="GET_MEDIA",
             ),
         ).get_media(
-            StreamName=self.input_params.stream_name,
+            StreamName=self._stream_name,
             StartSelector={
                 "StartSelectorType": "FRAGMENT_NUMBER",
                 "AfterFragmentNumber": fragment_number,
@@ -189,7 +191,7 @@ class KvsClient:
         get_fragments returns the fragments for the stream.
         """
         url = self._get_data_endpoint(
-            stream_name=self.input_params.stream_name,
+            stream_name=self._stream_name,
             api_name=api_name,
         )
         return boto3.client(
@@ -224,6 +226,10 @@ class KvsClient:
         canonical_uri = "/putMedia"
         canonical_querystring = ""
 
+        self._log.info("start_timestamp: %s", start_timestamp)
+        self._log.info("amz_date: %s", amz_date)
+        self._log.info("date_stamp: %s", date_stamp)
+
         canonical_headers = (
             "\n".join(
                 [
@@ -236,7 +242,7 @@ class KvsClient:
                     "x-amzn-fragment-acknowledgment-required:1",
                     f"x-amzn-fragment-timecode-type:{timecode_type}",
                     f"x-amzn-producer-start-timestamp:{start_timestamp}",
-                    f"x-amzn-stream-name:{self.input_params.stream_name}",
+                    f"x-amzn-stream-name:{self._stream_name}",
                 ]
             )
             + "\n"
@@ -285,7 +291,7 @@ class KvsClient:
         )
 
         signing_key = self.get_signature_key(
-            self.input_params.aws_secret_access_key,
+            self._aws_secret_access_key,
             date_stamp,
             self._data_endpoint_region,
             self._kinesis_video_service_name,
@@ -299,7 +305,7 @@ class KvsClient:
             algorithm
             + " "
             + "Credential="
-            + self.input_params.aws_access_key_id
+            + self._aws_access_key_id
             + "/"
             + credential_scope
             + ", "
@@ -308,7 +314,7 @@ class KvsClient:
             "SignedHeaders=" + signed_headers + ", " + "Signature=" + signature
         )
 
-        return {
+        response = {
             "Accept": "*/*",
             "Authorization": authorization_header,
             "connection": "keep-alive",
@@ -319,9 +325,13 @@ class KvsClient:
             "x-amzn-fragment-acknowledgment-required": "1",
             "x-amzn-fragment-timecode-type": timecode_type,
             "x-amzn-producer-start-timestamp": start_timestamp,
-            "x-amzn-stream-name": self.input_params.stream_name,
+            "x-amzn-stream-name": self._stream_name,
             "Expect": "100-continue",
         }
+
+        if self._aws_session_token:
+            response["x-amz-security-token"] = self._aws_session_token
+        return response
 
     def put_media(
         self,
@@ -334,9 +344,7 @@ class KvsClient:
 
         response = requests.post(
             self._put_media_endpoint,
-            data=ChunkGenerator(
-                file_path=self.input_params.video_file_path, chunk_size=chunk_size
-            ),
+            data=ChunkGenerator(file_path=self._video_file_path, chunk_size=chunk_size),
             headers=headers,
             timeout=10,
         )
