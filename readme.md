@@ -38,7 +38,7 @@ So you need to encode it with ffmpeg:
 
 ![screenshot](./screenshot.png)
 
-![logs](./screenshot_2.png)
+![logs](./console.png)
 
 ## Links
 
