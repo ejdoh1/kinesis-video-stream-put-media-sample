@@ -208,7 +208,10 @@ class KvsClient:
             "Fragments"
         ]
 
-    def _generate_headers(self) -> dict:
+    def _generate_headers(
+        self,
+        timecode_type: str = "RELATIVE",
+    ) -> dict:
         """
         generate_headers returns the headers for the request.
         """
@@ -231,7 +234,7 @@ class KvsClient:
                     "user-agent:AWS-SDK-KVS/2.0.2 GCC/7.4.0 Linux/4.15.0-46-generic x86_64",
                     f"x-amz-date:{amz_date}",
                     "x-amzn-fragment-acknowledgment-required:1",
-                    "x-amzn-fragment-timecode-type:ABSOLUTE",
+                    f"x-amzn-fragment-timecode-type:{timecode_type}",
                     f"x-amzn-producer-start-timestamp:{start_timestamp}",
                     f"x-amzn-stream-name:{self.input_params.stream_name}",
                 ]
@@ -314,7 +317,7 @@ class KvsClient:
             "user-agent": "AWS-SDK-KVS/2.0.2 GCC/7.4.0 Linux/4.15.0-46-generic x86_64",
             "x-amz-date": amz_date,
             "x-amzn-fragment-acknowledgment-required": "1",
-            "x-amzn-fragment-timecode-type": "ABSOLUTE",
+            "x-amzn-fragment-timecode-type": timecode_type,
             "x-amzn-producer-start-timestamp": start_timestamp,
             "x-amzn-stream-name": self.input_params.stream_name,
             "Expect": "100-continue",
